@@ -1,5 +1,6 @@
-# mq-aws
-Sample code for running IBM® MQ on Amazon Web Services (AWS):
+# MQ on Amazon Web Services (AWS)
+
+This repository contains sample code for running IBM® MQ on Amazon Web Services (AWS):
 
 * [MQ on AWS: PoC of high availability using EFS](efs/)
 
