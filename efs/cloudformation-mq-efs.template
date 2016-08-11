@@ -1,0 +1,321 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Run an MQ server in an ASG with EFS.  (C) Copyright IBM Corporation 2016",
+
+  "Parameters" : {
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+
+    "AMI": {
+      "Description" : "ID of an AMI with IBM MQ pre-installed",
+      "Type": "AWS::EC2::Image::Id",
+      "ConstraintDescription" : "must be a valid AMI ID."
+    },
+
+    "InstanceType" : {
+      "Description" : "MQ server EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t1.micro", "t2.nano", "t2.micro", "t2.small", "t2.medium", "t2.large", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", "m4.10xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "g2.2xlarge", "g2.8xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "QueueManagerName": {
+      "Description" : "Name to use for the IBM MQ queue manager",
+      "Type": "String",
+      "ConstraintDescription" : "must be a valid MQ queue manager name."
+    },
+
+    "AvailabilityZone1": {
+      "Description" : "Availability zone",
+      "Type": "String",
+      "ConstraintDescription" : "must be a valid AWS availability zone."
+    },
+
+    "AvailabilityZone2": {
+      "Description" : "Availability zone",
+      "Type": "String",
+      "ConstraintDescription" : "must be a valid AWS availability zone."
+    }
+  },
+
+  "Resources" : {
+    "ReportHealthRole" : {
+      "Type"  : "AWS::IAM::Role",
+      "Properties" : {
+          "AssumeRolePolicyDocument" : {
+              "Statement" : [ {
+                  "Effect" : "Allow",
+                  "Principal" : {
+                      "Service" : [ "ec2.amazonaws.com" ]
+                  },
+                  "Action" : [ "sts:AssumeRole" ]
+              } ]
+          },
+          "Path" : "/"
+      }
+    },
+    "ReportHealthRolePolicy" : {
+        "Type" : "AWS::IAM::Policy",
+        "Properties" : {
+            "PolicyName" : "ReportHealthPolicy",
+            "PolicyDocument" : {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "autoscaling:SetInstanceHealth",
+                  "Resource": "*"
+              }
+             ]
+            },
+            "Roles" : [ { "Ref" : "ReportHealthRole" } ]
+        }
+    },
+    "ReportHealthInstanceProfile" : {
+      "Type" : "AWS::IAM::InstanceProfile",
+      "Properties" : {
+        "Path" : "/",
+        "Roles" : [ { "Ref" : "ReportHealthRole" } ]
+      }
+    },
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "EnableDnsSupport" : "true",
+        "EnableDnsHostnames" : "true",
+        "CidrBlock": "10.0.0.0/16"
+      }
+    },
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "GatewayToInternet" : {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "InternetGatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "RouteTable":{
+      "Type":"AWS::EC2::RouteTable",
+      "Properties":{
+        "VpcId": {"Ref":"VPC"}
+      }
+    },
+    "Subnet1RouteTableAssoc": {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : {"Ref":"RouteTable"},
+        "SubnetId" : {"Ref":"Subnet1"}
+      }
+    },
+    "Subnet2RouteTableAssoc": {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : {"Ref":"RouteTable"},
+        "SubnetId" : {"Ref":"Subnet2"}
+      }
+    },
+    "InternetGatewayRoute": {
+        "Type":"AWS::EC2::Route",
+        "Properties":{
+            "DestinationCidrBlock":"0.0.0.0/0",
+            "RouteTableId":{"Ref":"RouteTable"},
+            "GatewayId":{"Ref":"InternetGateway"}
+        }
+    },
+    "Subnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "AvailabilityZone": { "Ref": "AvailabilityZone1" },
+        "CidrBlock": "10.0.1.0/24"
+      }
+    },
+    "Subnet2": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "AvailabilityZone": { "Ref": "AvailabilityZone2" },
+        "CidrBlock": "10.0.2.0/24"
+      }
+    },
+    "MQSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "GroupDescription": "Enable SSH access via port 22",
+        "SecurityGroupIngress": [
+          { "IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0" },
+          { "IpProtocol": "tcp", "FromPort": "1414", "ToPort": "1414", "CidrIp": "0.0.0.0/0" }
+         ]
+      }
+    },
+    "MountTargetSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "GroupDescription": "Security group for mount target",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "2049",
+            "ToPort": "2049",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+
+    "LaunchConfiguration": {
+        "Type": "AWS::AutoScaling::LaunchConfiguration",
+        "Properties": {
+            "AssociatePublicIpAddress": true,
+            "ImageId": {
+                "Ref": "AMI"
+            },
+            "InstanceType": {
+                "Ref": "InstanceType"
+            },
+            "KeyName": {
+                "Ref": "KeyName"
+            },
+            "SecurityGroups": [{
+                "Ref": "MQSecurityGroup"
+            }],
+            "IamInstanceProfile": {
+                "Ref": "ReportHealthInstanceProfile"
+            },
+            "UserData": {
+                "Fn::Base64": {
+                    "Fn::Join": [
+                        "", [
+                          "#cloud-config\n",
+                          "write_files: \n",
+                          " - content: |\n",
+                          "     #!/bin/bash\n",
+                          "     MQ_QMGR_NAME=", { "Ref" : "QueueManagerName" }, "\n",
+                          "     MQ_FILE_SYSTEM=", { "Ref": "MQFileSystem" }, "\n",
+                          "     AWS_REGION=", { "Ref": "AWS::Region" }, "\n",
+                          "     chmod +x /tmp/configure-mq-aws\n",
+                          "     /tmp/configure-mq-aws ${MQ_QMGR_NAME} ${MQ_FILE_SYSTEM} ${AWS_REGION}\n",
+                          "   owner: root:root\n",
+                          "   path: /tmp/configure\n",
+                          "   permissions: '0700'\n",
+                          "runcmd: \n",
+                          " - [ /tmp/configure ]"
+                        ]
+                    ]
+                }
+            }
+        }
+    },
+
+    "AutoScalingGroup": {
+        "Type": "AWS::AutoScaling::AutoScalingGroup",
+        "DependsOn": ["MountTarget1", "MountTarget2", "GatewayToInternet"],
+        "Properties": {
+            "VPCZoneIdentifier": [{
+                "Ref": "Subnet1"
+            }, {
+                "Ref": "Subnet2"
+            }],
+            "LoadBalancerNames" : [
+              { "Ref": "LoadBalancer" }
+            ],
+            "HealthCheckType": "ELB",
+            "HealthCheckGracePeriod": 90,
+            "LaunchConfigurationName": {
+                "Ref": "LaunchConfiguration"
+            },
+            "MinSize": "1",
+            "MaxSize": "1",
+            "DesiredCapacity": "1",
+            "Tags": [{
+                "Key": "Name",
+                "Value": "mq-efs",
+                "PropagateAtLaunch": "true"
+            }]
+        },
+        "UpdatePolicy" : {
+          "AutoScalingRollingUpdate" : {
+            "MinInstancesInService" : "0",
+            "MaxBatchSize" : "1"
+          }
+        }
+    },
+
+     "MQFileSystem" : {
+       "Type" : "AWS::EFS::FileSystem",
+       "Properties" : {
+         "FileSystemTags" : [
+           {
+             "Key" : "Name",
+             "Value" : "MQFileSystem"
+           }
+         ]
+       }
+     },
+
+     "MountTarget1": {
+       "Type": "AWS::EFS::MountTarget",
+       "Properties": {
+         "FileSystemId": { "Ref": "MQFileSystem" },
+         "SubnetId": { "Ref": "Subnet1" },
+         "SecurityGroups": [ { "Ref": "MountTargetSecurityGroup" } ]
+       }
+     },
+
+     "MountTarget2": {
+       "Type": "AWS::EFS::MountTarget",
+       "Properties": {
+         "FileSystemId": { "Ref": "MQFileSystem" },
+         "SubnetId": { "Ref": "Subnet2" },
+         "SecurityGroups": [ { "Ref": "MountTargetSecurityGroup" } ]
+       }
+     },
+
+    "LoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "CrossZone": true,
+        "Listeners" : [{
+            "InstancePort" : "1414",
+            "InstanceProtocol" : "TCP",
+            "LoadBalancerPort" : "1414",
+            "Protocol" : "TCP"
+        }],
+        "HealthCheck": {
+          "HealthyThreshold": "2",
+          "Interval": "10",
+          "Target": "TCP:1414",
+          "Timeout": "5",
+          "UnhealthyThreshold": "2"
+        },
+        "SecurityGroups": [{
+            "Ref": "MQSecurityGroup"
+        }],
+        "Subnets" : [
+          { "Ref": "Subnet1" },
+          { "Ref": "Subnet2" }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "MQAddress": {
+        "Value": { "Fn::GetAtt": [ "LoadBalancer", "DNSName" ]},
+        "Description": "DNS name of MQ load balancer"
+    }
+  }
+}

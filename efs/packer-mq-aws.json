@@ -1,0 +1,56 @@
+{
+  "provisioners": [{
+    "type": "file",
+    "source": "check-mq-health-aws.sh",
+    "destination": "/tmp/check-mq-health-aws"
+  }, {
+    "type": "file",
+    "source": "systemd-mq@.service",
+    "destination": "/tmp/mq@.service"
+  }, {
+    "type": "file",
+    "source": "systemd-mq-health-aws@.service",
+    "destination": "/tmp/mq-health-aws@.service"
+  }, {
+    "type": "file",
+    "source": "config.mqsc",
+    "destination": "/tmp/config.mqsc"
+  }, {
+    "type": "file",
+    "source": "configure-mq-aws.sh",
+    "destination": "/tmp/configure-mq-aws"
+  }, {
+    "type": "shell",
+    "script": "install-mq-rhel.sh",
+    "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}",
+    "environment_vars": [
+      "MQ_URL=http://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqadv/mqadv_dev90_linux_x86-64.tar.gz",
+      "MQ_PACKAGES=\"MQSeriesRuntime-*.rpm MQSeriesServer-*.rpm MQSeriesMsg*.rpm MQSeriesJava*.rpm MQSeriesJRE*.rpm MQSeriesGSKit*.rpm MQSeriesSamples*.rpm MQSeriesClient*.rpm\""
+    ]
+  }, {
+    "type": "shell",
+    "script": "install-aws-rhel.sh",
+    "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} sudo -E {{ .Path }}"
+  }],
+  "builders": [{
+    "type": "amazon-ebs",
+    "ami_name": "ibm-mq-{{timestamp}}",
+    "instance_type": "t2.micro",
+    "region": "us-west-2",
+    "source_ami": "ami-775e4f16",
+    "ssh_username": "ec2-user",
+    "ssh_pty" : "true",
+    "ami_description": "IBM MQ V9 on RHEL 7.2",
+    "tags": {
+      "OS": "RHEL",
+      "OS version": "7.2",
+      "Owner": "arthur.barr"
+    },
+    "run_tags": {
+      "Owner": "arthur.barr"
+    },
+    "run_volume_tags": {
+      "Owner": "arthur.barr"
+    }
+  }]
+}
