@@ -140,7 +140,7 @@ LicenseType: Developer
 ```
 To verify that IBM MQ has been installed successfully, perform the following:
 ```
-crtmqm QMA
+crtmqm -p 1414 QMA
 strmqm QMA
 runmqsc QMA
 DEFINE QLOCAL (QUEUE1) DEFPSIST(YES)
@@ -228,7 +228,7 @@ chown -R mqm:mqm /mnt/QM1
 ```
 As the ubuntu user, run:
 ```
-crtmqm -ld /mnt/QM1/logs -md /mnt/QM1/data QM1
+crtmqm -ld /mnt/QM1/logs -md /mnt/QM1/data -p 1515 QM1
 ```
 
 You can start the queue manager immediately but you would not be able to move it to another instance until the initial synchronization of the volume has completed. You can check this by running the command `sudo drbdsetup status QM1` which will return something like the following when the initial synchronization is complete:
