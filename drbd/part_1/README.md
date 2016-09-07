@@ -2,6 +2,7 @@
 
 There are two aspects to any High Availability (HA) or Disaster Recovery (DR)
 solution for IBM(R) MQ:
+
 1. managing where an instance of a queue manager runs
 2. making sure that the appropriate data is available to the queue manager
 
