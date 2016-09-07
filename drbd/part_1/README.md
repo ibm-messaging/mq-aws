@@ -12,7 +12,7 @@ and uses [DRBD(R)](https://www.drbd.org/en/) to replicate data between Linux sys
 This version of the sample creates three Ubuntu Virtual Servers, one in each
 Availability Zone of an AWS region. Using three instances ensures that if one
 fails data will still be replicated between the remaining two.
-IBM MQ and DRBD are installed in each and
+IBM MQ and DRBD are installed in each Virtual Server and
 configured appropriately.
 
 The sample uses an Elastic Block Storage (EBS) volume for the queue manager data. EBS replicates data within an Availability Zone and this sample builds on that by replicating the data between Availability Zones so even if an entire Availability Zone fails you can still start another instance of the queue manager.
@@ -174,7 +174,7 @@ To use the script, run `sudo ./installDRBD`
 
 On one instance, issue the command `sudo drbdmanage init -q`
 
-On one of the other instances, run `uname -n` and then on the first instance run the command `sudo drbdmanage add-node <uname> <IP address>` where <uname> is the value returned by `uname -n` on the second instance and <IP address> is the private IP address of the second instance.
+On one of the other instances, run `uname -n` and then on the first instance run the command `sudo drbdmanage add-node <uname> <IP address>` where `<uname>` is the value returned by `uname -n` on the second instance and `<IP address>` is the private IP address of the second instance.
 
 This will print out a command that has to be executed as root on the second instance so run that command as root on the second instance. You will have to enter 'yes' to confirm the operation.
 
