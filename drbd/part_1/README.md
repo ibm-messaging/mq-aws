@@ -24,12 +24,14 @@ then shut down and started on another virtual server and the messages retrieved.
 ## Creating Ubuntu Virtual Servers
 
 The Virtual Servers are created using a CloudFormation template. The template defines a number of parameters:
+
 1. AMI - the identifier of the AMI to use to create the instances
 2. ClusterName - a string that is used to name the instances
 3. InstanceTypeParameter - the type of instance to create; the default is m3.xlarge. As the instances are defined with the EbsOptimized attribute set to "true" only instance types which support EBS Optimization are allowed
 4. KeyName - the name of the key pair to use to authenticate to the instances
 
 The resources created by the template are:
+
 1. a Virtual Private Cloud (VPC) to contain the other resources
 2. an InternetGateway to allow access to the virtual servers over the Internet
 3. a VPCGatewayAttachment to associate the InternetGateway with the VPC
@@ -44,6 +46,7 @@ The resources created by the template are:
 The outputs defined in the template are the public and private IP addresses of each instance.
 
 To make it easier to create a stack using the template, a `createStack` script is included which takes the following arguments:
+
 1. the AMI to use
 2. the name of the cluster
 3. the instance type
@@ -97,6 +100,7 @@ You should exit and connect to the instance again before installing MQ.
 ### Installing IBM MQ
 
 To install IBM MQ, perform the following as root:
+
 1. `tar -xzf mqadv_dev90_linux_x86-64.tar.gz`
 2. `cd MQServer`
 3. `./mqlicense.sh -accept`
@@ -108,6 +112,7 @@ You should check that the uid and gid values for mqm are the same on all the ins
 ### Final configuration
 
 There are some steps that must performed once IBM MQ is installed:
+
 1. run `sudo /opt/mqm/bin/setmqinst -i -p /opt/mqm`
 2. edit the `.bashrc` file of the ubuntu user and add the line `. /opt/mqm/bin/setmqenv -s`
 3. add the ubuntu user to the mqm group using the command `sudo usermod -G mqm ubuntu`
@@ -158,6 +163,7 @@ You can copy the `installDRBD` script to each instance and use that to install D
 DRBD will be installed from the PPA maintained by LINBIT, the company behind DRBD.
 
 This will install the latest version of DRBD which has some new features that we will use:
+
 1. a new approach to manage drbd: drbdmanage
 2. support for replicating data to more than one other instance
 3. making the replicated data available by simply mounting the DRBD device
