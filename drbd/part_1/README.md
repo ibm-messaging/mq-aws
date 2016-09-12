@@ -1,4 +1,4 @@
-# Replicating IBM MQ data using DRBD
+# Replicating IBM MQ data using DRBD, part 1
 
 There are two aspects to any High Availability (HA) or Disaster Recovery (DR)
 solution for IBM(R) MQ:
@@ -6,8 +6,8 @@ solution for IBM(R) MQ:
 1. managing where an instance of a queue manager runs
 2. making sure that the appropriate data is available to the queue manager
 
-This sample assumes that a queue manager is stopped and started manually,
-and uses [DRBD(R)](https://www.drbd.org/en/) to replicate data between Linux systems.
+This sample is the first in a series that uses [DRBD(R)](https://www.drbd.org/en/) to replicate data between Linux systems. It assumes that a queue manager is stopped and started manually,
+so is more of an approach to DR than HA, but later samples will show how to automate the failover of a queue manager.
 
 This version of the sample creates three Ubuntu Virtual Servers, one in each
 Availability Zone of an AWS region. Using three instances ensures that if one
@@ -68,54 +68,21 @@ The instances are configured with an additional EBS volume of type IO1. The size
 
 As this is just a sample, we will use IBM MQ Advanced for Developers which can be downloaded [here](http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?popup=Y&li_formnum=L-APIG-A4FHQ9&accepted_url=http://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqadv/mqadv_dev90_linux_x86-64.tar.gz)
 
-Once you have downloaded the file mqadv_dev90_linux_x86-64.tar.gz, scp it to each instance.
+Once you have downloaded the file mqadv_dev90_linux_x86-64.tar.gz, scp it to each instance. The sample assumes it is copied to the home directory of the `ubuntu` user.
 
 ### Preparing each instance
 
-There are some configuration changes that should be made before installing MQ.
-
-The first is to edit `/etc/sysctl.conf` as root and add the following lines:
-```
-kernel.shmmax=268435456
-vm.overcommit_memory=2
-```
-
-Save the file and run the command `sudo sysctl -p`
-
-The second change is to edit `/etc/security/limits.conf` as root and add the following lines:
-```
-* hard nofile 10240
-* soft nofile 10240
-root hard nofile 10240
-root soft nofile 10240
-```
-
-Finally, edit `/etc/pam.d/common-session` as root and add the line:
-```
-session required pam_limits.so
-```
+There are some configuration changes that should be made before installing MQ. You can make these by running `sudo ./configureForMQ`
 
 You should exit and connect to the instance again before installing MQ.
 
 ### Installing IBM MQ
 
-To install IBM MQ, perform the following as root:
+To install IBM MQ, run `sudo ./installMQ`
 
-1. `tar -xzf mqadv_dev90_linux_x86-64.tar.gz`
-2. `cd MQServer`
-3. `./mqlicense.sh -accept`
-4. `apt-get -y install rpm`
-5. `rpm -ivh --force-debian *.rpm`
+Note that this will automatically accept the IBM MQ license.
 
 You should check that the uid and gid values for mqm are the same on all the instances.
-
-### Final configuration
-
-There are some steps that must performed once IBM MQ is installed:
-
-1. run `sudo /opt/mqm/bin/setmqinst -i -p /opt/mqm`
-2. edit the `.bashrc` file of the ubuntu user and add the line `. /opt/mqm/bin/setmqenv -s`
-3. add the ubuntu user to the mqm group using the command `sudo usermod -G mqm ubuntu`
 
 Log out and log in again.
 
