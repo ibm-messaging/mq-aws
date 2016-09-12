@@ -3,7 +3,7 @@
 This repository contains sample code for running IBM® MQ on Amazon Web Services (AWS):
 
 * [MQ on AWS: sample using DRBD to replicate data](mq-aws/tree/master/drbd/part_1/)
-* [MQ on AWS: PoC of high availability using EFS](efs/)
+* [MQ on AWS: PoC of high availability using EFS](mq-aws/tree/master/efs/)
 
 ## License
 
