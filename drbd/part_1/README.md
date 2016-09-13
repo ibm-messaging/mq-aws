@@ -72,6 +72,12 @@ Once you have downloaded the file mqadv_dev90_linux_x86-64.tar.gz, scp it to eac
 
 ### Preparing each instance
 
+There are a number of scripts that should be copied to the home directory of the `ubuntu` user on each instance:
+
+1. configureForMQ
+2. installMQ
+3. installDRBD
+
 There are some configuration changes that should be made before installing MQ. You can make these by running `sudo ./configureForMQ`
 
 You should exit and connect to the instance again before installing MQ.
