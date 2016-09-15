@@ -216,15 +216,26 @@ QM1 role:Primary
 
 Once both peer-disk lines say `UpToDate` it is safe to start the queue manager with `strmqm QM1`
 
+Once the queue manager has started, stop it again with `endmqm -w QM1`
+
+Once the queue manager has ended, run the command `dspmqinf -o command QM1` which will print an addmqinf command that you have to run on each of the other instances.
+
+unmount the queue manager filesystem with `sudo umount /mnt/QM1`
+
 ### Configuring the queue manager on the other instances
 
-On the first instance run the command `dspmqinf -o command QM1` which will print an addmqinf command that you have to run on each of the other instances, but before doing that you should prepare the mount point for the data volume by running as root:
+On one of the other instances run as root:
 ```
 mkdir /mnt/QM1
 chown mqm:mqm /mnt/QM1
+mount -t ext4 /dev/drbd/by-res/QM1/0 /mnt/QM1
 ```
 
-You can then run, as the ubuntu user, the generated addmqinf command. This will give a message about /mnt/QM1/data/QM1/qm.ini missing but that can be ignored.
+You can then run, as the ubuntu user, the generated addmqinf command.
+
+Unmount the queue manager filesystem with `sudo umount /mnt/QM1`
+
+Repeat these stops on the final instance.
 
 ## Testing moving the queue manager
 
@@ -232,6 +243,8 @@ To test moving the queue manager from one instance to another, we will do the sa
 
 The first part consists of writing some persitent messages to a queue on the QM1 queue manager, so on the first instance run, as the ubuntu user:
 ```
+mount -t ext4 /dev/drbd/by-res/QM1/0 /mnt/QM1
+strmqm QM1
 runmqsc QM1
 DEFINE QLOCAL (QUEUE1) DEFPSIST(YES)
 end
