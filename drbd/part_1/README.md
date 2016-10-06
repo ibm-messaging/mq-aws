@@ -243,7 +243,7 @@ To test moving the queue manager from one instance to another, we will do the sa
 
 The first part consists of writing some persitent messages to a queue on the QM1 queue manager, so on the first instance run, as the ubuntu user:
 ```
-mount -t ext4 /dev/drbd/by-res/QM1/0 /mnt/QM1
+sudo mount -t ext4 /dev/drbd/by-res/QM1/0 /mnt/QM1
 strmqm QM1
 runmqsc QM1
 DEFINE QLOCAL (QUEUE1) DEFPSIST(YES)
