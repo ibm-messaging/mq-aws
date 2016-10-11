@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# (C) Copyright IBM Corporation 2016
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script must be run as mqm
+
+# The only argument is the queue manager name. Save it as QM variable
+QM=$1
+
+if [[ -z "$QM" ]]
+then
+    echo "ERROR! No queue manager name supplied"
+    exit 1
+fi
+
+# End any queue manager processes which might be running.
+
+srchstr="( |-m)$QM *.*$"
+for process in amqzmuc0 amqzxma0 amqfcxba amqfqpub amqpcsea amqzlaa0 \
+               amqzlsa0 runmqchi runmqlsr amqcrsta amqrrmfa amqrmppa \
+               amqzfuma amqzmuf0 amqzmur0 amqzmgr0
+ do
+  ps -ef | tr "\t" " " | grep $process | grep -v grep | \
+    egrep "$srchstr" | awk '{print $2}'| \
+       xargs kill -9 > /dev/null 2>&1
+done
+
+# It is now safe to start the queue manager.
+# The strmqm command does not use the -x flag.
+strmqm ${QM}

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# (C) Copyright IBM Corporation 2016
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Argument is the queue manager name
+
+crm cib new $1_cfg
+crm -c $1_cfg configure primitive $1 MQ_HA_QM
+crm -c $1_cfg configure colocation $1_with_fs inf: $1 p_fs_$1
+crm -c $1_cfg configure order $1_after_fs Mandatory: p_fs_$1 $1
+crm cib commit $1_cfg

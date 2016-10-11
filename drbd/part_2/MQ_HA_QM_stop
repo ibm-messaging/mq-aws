@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# (C) Copyright IBM Corporation 2016
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script must be run as mqm
+
+# The only argument is the queue manager name. Save it as QM variable
+QM=$1
+
+# There are two arguments: the queue manager name and a timeout value.
+QM=$1
+TIMEOUT=$2
+
+if [ -z "$QM" ]
+then
+  echo "ERROR! No queue manager name supplied"
+  exit 1
+fi
+
+if [ -z "$TIMEOUT" ]
+then
+  echo "ERROR! No timeout specified"
+  exit 1
+fi
+
+for severity in immediate brutal
+do
+  # End the queue manager in the background to avoid
+  # it blocking indefinitely. Run the TIMEOUT timer 
+  # at the same time to interrupt the attempt, and try a
+  # more forceful version. If the brutal version fails, 
+  # nothing more can be done here.
+  
+  echo "Attempting ${severity} end of queue manager '${QM}'"
+  case $severity in
+
+  immediate)
+    # Minimum severity of endmqm is immediate which severs connections.
+    # HA cluster should not be delayed by clients
+    endmqm -i ${QM} &
+    ;;
+
+  brutal)
+    # This is a forced means of stopping queue manager processes.
+
+    srchstr="( |-m)$QM *.*$"
+    for process in amqzmuc0 amqzxma0 amqfcxba amqfqpub amqpcsea amqzlaa0 \
+               amqzlsa0 runmqchi runmqlsr amqcrsta amqrrmfa amqrmppa \
+               amqzfuma amqzmuf0 amqzmur0 amqzmgr0    
+    do
+      ps -ef | tr "\t" " " | grep $process | grep -v grep | \
+         egrep "$srchstr" | awk '{print $2}'| \
+            xargs kill -9 > /dev/null 2>&1
+    done
+
+  esac
+
+  TIMED_OUT=yes
+  SECONDS=0
+  while (( $SECONDS < ${TIMEOUT} ))
+  do
+   TIMED_OUT=yes
+   i=0
+   while [ $i -lt 5 ]
+   do
+     # Check for execution controller termination
+     srchstr="( |-m)$QM *.*$"
+     cnt=`ps -ef | tr "\t" " " | grep amqzxma0 | grep -v grep | \
+       egrep "$srchstr" | awk '{print $2}' | wc -l `
+     i=`expr $i + 1`
+     sleep 1
+     if [ $cnt -eq 0 ]
+     then
+       TIMED_OUT=no
+       break
+     fi
+   done
+
+   if [ ${TIMED_OUT} = "no" ]
+   then
+     break
+   fi
+
+   echo "Waiting for ${severity} end of queue manager '${QM}'"
+   sleep 1
+  done # timeout loop
+
+  if [ ${TIMED_OUT} = "yes" ]
+  then
+    continue        # to next level of urgency
+  else
+    break           # queue manager is ended, job is done
+  fi
+
+done # next phase

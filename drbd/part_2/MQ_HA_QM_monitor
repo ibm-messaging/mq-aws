@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# (C) Copyright IBM Corporation 2016
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script must be run by the mqm user.
+
+QM=$1
+MQ_INSTALLATION_PATH=$2
+
+if [ -z "$QM" ]
+then
+  echo "ERROR! No queue manager name supplied"
+  exit 1
+fi
+
+if [ -z "$MQ_INSTALLATION_PATH" ]
+then
+  # No path specified, assume system primary install or MQ level < 7.1.0.0
+  echo "INFO: Using shell default value for MQ_INSTALLATION_PATH"
+else
+  echo "INFO: Prefixing shell PATH variable with $MQ_INSTALLATION_PATH/bin"
+  PATH=$MQ_INSTALLATION_PATH/bin:$PATH
+fi
+
+# Test the operation of the queue manager. Result is 0 on success, non-zero on error.
+echo "ping qmgr" | runmqsc ${QM} > /dev/null 2>&1
+pingresult=$?
+
+if [ $pingresult -eq 0 ]
+then # ping succeeded
+
+  echo "Queue manager '${QM}' is responsive"
+  result=0
+
+else # ping failed
+
+  # Don't condemn the queue manager immediately, it might be starting.
+  srchstr="( |-m)$QM *.*$"
+  cnt=`ps -ef | tr "\t" " " | grep strmqm | grep "$srchstr" | grep -v grep \
+                | awk '{print $2}' | wc -l`
+  if [ $cnt -gt 0 ]
+  then
+    # It appears that the queue manager is still starting up, tolerate
+    echo "Queue manager '${QM}' is starting"
+    result=0
+  else
+    # There is no sign of the queue manager starting
+    echo "Queue manager '${QM}' is not responsive"
+    result=$pingresult
+  fi
+
+fi
+
+exit $result

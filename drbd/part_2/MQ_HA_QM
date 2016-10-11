@@ -1,0 +1,190 @@
+#!/bin/bash
+
+# (C) Copyright IBM Corporation 2016
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script is an Open Cluster Framework (OCF) Resource Agent for an
+# HA MQ queue manager.
+
+# It must be installed as /usr/lib/ocf/resource.d/IBM/MQ_HA_QM
+
+debug () {
+    if [[ -f /var/log/MQ_HA_QM.log ]]
+    then
+        echo "$(date):$*" >> /var/log/MQ_HA_QM.log
+    fi
+}
+
+# Initialization:
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+MQ_HA_QM_meta_data () {
+    cat <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="MQ_HA_QM" version="0.1">
+    <version>1.0</version>
+    <parameters>
+    </parameters>
+    <actions>
+        <action name="start" timeout="20"/>
+        <action name="stop" timeout="20"/>
+        <action name="monitor" timeout="5"/>
+    </actions>
+    <special tag="">
+    </special>
+</resource-agent>
+EOF
+}
+
+MQ_HA_QM_start() {
+    debug "Entering MQ_HA_QM_start"
+    local mqrc
+    local rc=$OCF_ERR_GENERIC
+
+    # if resource is already running, bail out early
+    if MQ_HA_QM_monitor
+    then
+        debug "Resource is already running"
+        rc=$OCF_SUCCESS
+    else
+        # actually start up the resource here (make sure to immediately
+        # exit with an $OCF_ERR_ error code if anything goes seriously
+        # wrong)
+
+        debug "su mqm -c /home/ubuntu/MQ_HA_QM_start $OCF_RESOURCE_INSTANCE"
+        su mqm -c "/home/ubuntu/MQ_HA_QM_start $OCF_RESOURCE_INSTANCE"
+        mqrc=$?
+
+        debug "mqrc is $mqrc"
+
+        if [[ $mqrc -eq 0 ]]
+        then
+            # After the resource has been started, check whether it started up
+            # correctly. If the resource starts asynchronously, the agent may
+            # spin on the monitor function here -- if the resource does not
+            # start up within the defined timeout, the cluster manager will
+            # consider the start action failed
+            while ! MQ_HA_QM_monitor
+            do
+                debug "Resource has not started yet, waiting"
+                sleep 1
+            done
+            rc=$OCF_SUCCESS
+        else
+            # For now, just return $OCF_ERR_CONFIGURED
+            rc=$OCF_ERR_CONFIGURED
+        fi
+    fi
+
+    # only return $OCF_SUCCESS if _everything_ succeeded as expected
+    debug "Leaving MQ_HA_QM_start, rc is $rc"
+    return $rc
+}
+
+MQ_HA_QM_stop() {
+    debug "Entering MQ_HA_QM_stop"
+    local rc=$OCF_ERR_CONFIGURED
+    local monitor_rc
+    local mqrc
+
+    MQ_HA_QM_monitor
+    monitor_rc=$?
+    case "$monitor_rc" in
+        "$OCF_SUCCESS")
+            # Currently running. Normal, expected behavior.
+            debug "Resource is currently running"
+            ;;
+        "$OCF_NOT_RUNNING")
+            # Currently not running. Nothing to do.
+            debug "Resource is already stopped"
+            return $OCF_SUCCESS
+            ;;
+    esac
+
+    # actually shut down the resource here (make sure to immediately
+    # exit with an $OCF_ERR_ error code if anything goes seriously
+    # wrong)
+
+    su mqm -c "/home/ubuntu/MQ_HA_QM_stop $OCF_RESOURCE_INSTANCE 30"
+    mqrc=$?
+
+    debug "mqrc is $mqrc"
+
+    # After the resource has been stopped, check whether it shut down
+    # correctly. If the resource stops asynchronously, the agent may
+    # spin on the monitor function here -- if the resource does not
+    # shut down within the defined timeout, the cluster manager will
+    # consider the stop action failed
+    while MQ_HA_QM_monitor; do
+        debug "Resource has not stopped yet, waiting"
+        sleep 1
+    done
+
+    rc=$OCF_SUCCESS
+
+    # only return $OCF_SUCCESS if _everything_ succeeded as expected
+    debug "Leaving MQ_HA_QM_stop, rc is $rc"
+    return $rc
+}
+
+MQ_HA_QM_monitor() {
+    debug "Entering MQ_HA_QM_monitor"
+    local rc=$OCF_NOT_RUNNING
+    local mqrc
+
+    su mqm -c "/home/ubuntu/MQ_HA_QM_monitor $OCF_RESOURCE_INSTANCE"
+    mqrc=$?
+
+    debug "mqrc is $mqrc"
+
+    case $mqrc in
+        0)
+            rc=$OCF_SUCCESS
+            ;;
+        *)
+            rc=$OCF_NOT_RUNNING
+            ;;
+    esac
+
+    debug "Leaving MQ_HA_QM_monitor, rc is $rc"
+    return $rc
+}
+
+# Make sure meta-data and usage always succeed
+case $__OCF_ACTION in
+meta-data)      MQ_HA_QM_meta_data
+                exit $OCF_SUCCESS
+                ;;
+usage|help)     MQ_HA_QM_usage
+                exit $OCF_SUCCESS
+                ;;
+esac
+
+# Translate each action into the appropriate function call
+case $__OCF_ACTION in
+start)          MQ_HA_QM_start;;
+stop)           MQ_HA_QM_stop;;
+status|monitor) MQ_HA_QM_monitor;;
+validate-all)   ;;
+*)              MQ_HA_QM_usage
+                exit $OCF_ERR_UNIMPLEMENTED
+                ;;
+esac
+rc=$?
+
+# The resource agent may optionally log a debug message
+debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION returned $rc"
+exit $rc

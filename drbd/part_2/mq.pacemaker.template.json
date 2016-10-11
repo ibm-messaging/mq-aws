@@ -1,0 +1,276 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters" : {
+        "AMI" : {
+            "Type" : "String"
+        },
+        "ClusterName" : {
+            "Type" : "String"
+        },
+        "InstanceTypeParameter" : {
+            "Type" : "String",
+            "Default" : "m4.large",
+            "AllowedValues" : ["m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", "m4.10xlarge", "m3.xlarge", "m3.2xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "g2.2xlarge", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "x1.32xlarge", "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge"],
+            "Description" : "The instance type to deploy. Allowed values are m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge, m4.10xlarge, m3.xlarge, m3.2xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, c3.xlarge, c3.2xlarge, c3.4xlarge, g2.2xlarge, r3.xlarge, r3.2xlarge, r3.4xlarge, x1.32xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge, i2.xlarge, i2.2xlarge, i2.4xlarge"
+        },
+        "KeyName" : {
+            "Type" : "AWS::EC2::KeyPair::KeyName"
+        }
+    },
+    "Resources" : {
+        "VPC" : {
+            "Type" : "AWS::EC2::VPC",
+            "Properties" : {
+                "EnableDnsSupport" : "true",
+                "EnableDnsHostnames" : "true",
+                "CidrBlock" : "10.0.0.0/16"
+            }
+        },
+        "InternetGateway" : {
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {
+                "Tags" : [
+                    { "Key" : "Network", "Value" : "Public" }
+                ]
+            }
+        },
+        "GatewayToInternet" : {
+            "Type" : "AWS::EC2::VPCGatewayAttachment",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" },
+                "InternetGatewayId" : { "Ref" : "InternetGateway" }
+            }
+        },
+        "RouteTable" : {
+            "Type" : "AWS::EC2::RouteTable",
+            "Properties" : {
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+        "SubnetARouteTableAssoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "RouteTable" },
+                "SubnetId" : { "Ref" : "SubnetA" }
+            }
+        },
+        "SubnetBRouteTableAssoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "RouteTable" },
+                "SubnetId" : { "Ref" : "SubnetB" }
+            }
+        },
+        "SubnetCRouteTableAssoc" : {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+                "RouteTableId" : { "Ref" : "RouteTable" },
+                "SubnetId" : { "Ref" : "SubnetC" }
+            }
+        },
+        "InternetGatewayRoute" : {
+            "DependsOn" : "GatewayToInternet",
+            "Type" : "AWS::EC2::Route",
+            "Properties" : {
+                "DestinationCidrBlock" : "0.0.0.0/0",
+                "GatewayId" : { "Ref" : "InternetGateway" },
+                "RouteTableId" : { "Ref" : "RouteTable" }
+            }
+        },
+        "SubnetA" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone" : { "Fn::Select" : [ "0", { "Fn::GetAZs" : "" } ] },
+                "CidrBlock" : "10.0.1.0/24",
+                "MapPublicIpOnLaunch" : "true",
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+        "SubnetB" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone" : { "Fn::Select" : [ "1", { "Fn::GetAZs" : "" } ] },
+                "CidrBlock" : "10.0.2.0/24",
+                "MapPublicIpOnLaunch" : "true",
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+        "SubnetC" : {
+            "Type" : "AWS::EC2::Subnet",
+            "Properties" : {
+                "AvailabilityZone" : { "Fn::Select" : [ "2", { "Fn::GetAZs" : "" } ] },
+                "CidrBlock" : "10.0.3.0/24",
+                "MapPublicIpOnLaunch" : "true",
+                "VpcId" : { "Ref" : "VPC" }
+            }
+        },
+        "InstanceA" : {
+            "DependsOn" : "GatewayToInternet",
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "BlockDeviceMappings" : [
+                    {
+                        "DeviceName" : "/dev/sdb",
+                        "Ebs" : {
+                            "VolumeType" : "io1",
+                            "Iops" : "1300",
+                            "VolumeSize" : "26"
+                        }
+                    }
+                ],
+                "EbsOptimized" : "true",
+                "ImageId" : { "Ref" : "AMI" },
+                "InstanceType" : { "Ref" : "InstanceTypeParameter" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroupIds" : [
+                    { "Ref" : "InstanceSecurityGroup" },
+                    { "Ref" : "DRBDSecurityGroup" },
+                    { "Ref" : "PacemakerSecurityGroup" }
+                ],
+                "SubnetId" : { "Ref" : "SubnetA" },
+                "Tags" : [
+                    {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "a" ] ] } }
+                ]
+            }
+        },
+        "InstanceB" : {
+            "DependsOn" : "GatewayToInternet",
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "BlockDeviceMappings" : [
+                    {
+                        "DeviceName" : "/dev/sdb",
+                        "Ebs" : {
+                            "VolumeType" : "io1",
+                            "Iops" : "1300",
+                            "VolumeSize" : "26"
+                        }
+                    }
+                ],
+                "EbsOptimized" : "true",
+                "ImageId" : { "Ref" : "AMI" },
+                "InstanceType" : { "Ref" : "InstanceTypeParameter" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroupIds" : [
+                    { "Ref" : "InstanceSecurityGroup" },
+                    { "Ref" : "DRBDSecurityGroup" },
+                    { "Ref" : "PacemakerSecurityGroup" }
+                ],
+                "SubnetId" : { "Ref" : "SubnetB" },
+                "Tags" : [
+                    {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "b" ] ] } }
+                ]
+            }
+        },
+        "InstanceC" : {
+            "DependsOn" : "GatewayToInternet",
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "BlockDeviceMappings" : [
+                    {
+                        "DeviceName" : "/dev/sdb",
+                        "Ebs" : {
+                            "VolumeType" : "io1",
+                            "Iops" : "1300",
+                            "VolumeSize" : "26"
+                        }
+                    }
+                ],
+                "EbsOptimized" : "true",
+                "ImageId" : { "Ref" : "AMI" },
+                "InstanceType" : { "Ref" : "InstanceTypeParameter" },
+                "KeyName" : { "Ref" : "KeyName" },
+                "SecurityGroupIds" : [
+                    { "Ref" : "InstanceSecurityGroup" },
+                    { "Ref" : "DRBDSecurityGroup" },
+                    { "Ref" : "PacemakerSecurityGroup" }
+                ],
+                "SubnetId" : { "Ref" : "SubnetC" },
+                "Tags" : [
+                    {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "ClusterName" }, "c" ] ] } }
+                ]
+            }
+        },
+        "InstanceSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "Security Group for MQ DRBD part 1",
+                "VpcId" : { "Ref" : "VPC" },
+                "SecurityGroupIngress" : [ {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "22",
+                    "ToPort" : "22",
+                    "CidrIp" : "0.0.0.0/0"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "1414",
+                    "ToPort" : "1414",
+                    "CidrIp" : "0.0.0.0/0"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "1515",
+                    "ToPort" : "1515",
+                    "CidrIp" : "0.0.0.0/0"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "1616",
+                    "ToPort" : "1616",
+                    "CidrIp" : "0.0.0.0/0"
+                } ]
+            }
+        },
+        "PacemakerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security Group for Pacemaker",
+                "VpcId" : { "Ref" : "VPC" },
+                "SecurityGroupIngress" : [
+                    {
+                        "IpProtocol" : "udp",
+                        "FromPort" : "5404",
+                        "ToPort" : "5405",
+                        "CidrIp" : "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "DRBDSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security Group for DRBD",
+                "VpcId" : { "Ref" : "VPC" },
+                "SecurityGroupIngress" : [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort" : "0",
+                        "ToPort" : "65535",
+                        "CidrIp" : "0.0.0.0/0"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs" : {
+        "PublicIPa" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceA", "PublicIp" ] }
+        },
+        "PrivateIPa" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceA", "PrivateIp" ] }
+        },
+        "PublicIPb" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceB", "PublicIp" ] }
+        },
+        "PrivateIPb" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceB", "PrivateIp" ] }
+        },
+        "PublicIPc" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceC", "PublicIp" ] }
+        },
+        "PrivateIPc" : {
+            "Value" : { "Fn::GetAtt" : [ "InstanceC", "PrivateIp" ] }
+        }
+    }
+}
