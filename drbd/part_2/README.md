@@ -1,4 +1,4 @@
-# Replicating IBM MQ data using DRBD, part 2
+# Replicating IBM(R) MQ data using DRBD, part 2
 
 This sample is the second relating to DRBD(R) and adds support for automatically failing over a queue manager using [Pacemaker](http://clusterlabs.org/wiki/Pacemaker), which is commonly used with DRBD.
 
