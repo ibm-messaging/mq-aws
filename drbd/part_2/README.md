@@ -2,7 +2,7 @@
 
 This sample is the second relating to DRBD(R) and adds support for automatically failing over a queue manager using [Pacemaker](http://clusterlabs.org/wiki/Pacemaker), which is commonly used with DRBD.
 
-This sample builds on top of part 1. If you have an environment from part1 then you can extend that. If you do not have an environment from part 1 then you can create a new one using the template supplied in this sample.
+This sample builds on top of [part 1](../part_1). If you have an environment from part 1 then you can extend that. If you do not have an environment from part 1 then you can create a new one using the template supplied in this sample.
 
 ## Extending an environment from part 1
 
@@ -61,6 +61,8 @@ Copy the script configurePacemaker to each instance and run:
 ```
 sudo ./configurePacemaker <IP1> <IP2> <IP3>
 ```
+
+IP1 is the Private IP address of the first node in the cluster, IP2 is the Private IP address of the second node in the cluster and IP3 is the Private IP address of the third node in the cluster. The IP addresses should be supplied in the same order when the command is run on each instance.
 
 To check that the cluster is configured and running, on one of the nodes run:
 
@@ -124,17 +126,25 @@ Online: [ ip-10-0-1-95 ip-10-0-2-56 ip-10-0-3-232 ]
 
 ## Install MQ_HA_QM Resource Agent
 
+To allow Pacemaker to manage queue managers I have written an Open Cluster Framework (OCF) Resource Agent script which invokes other scripts to monitor, start and stop queue managers. These other scripts are based on the samples given in the IBM MQ Knowledge Center.
+
 To install the MQ_HA_QM Resource Agent, run:
 
 ```
-sudo ./installMQ_HA_QM```
+sudo ./installMQ_HA_QM
+```
 
 ## Configure Instance of MQ_HA_QM Resource Agent
 
-To create an instance of the MQ_HA_QM resource type for QM1, run:
+To create an instance of the MQ_HA_QM resource agent for QM1, run:
 
 ```sudo ./configureHA_QM QM1
 ```
+
+In addition to creating a resource for the queue manager QM1, the script adds two constraints to the Pacemaker configuration:
+
+1. a colocation constraint which says that the queue manager must run on the same node as the Filesystem
+2. an ordering constraint which says that the Filesystem must be started before the queue manager is Started
 
 To check that it worked, run:
 
