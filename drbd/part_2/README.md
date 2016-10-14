@@ -138,7 +138,8 @@ sudo ./installMQ_HA_QM
 
 To create an instance of the MQ_HA_QM resource agent for QM1, run:
 
-```sudo ./configureHA_QM QM1
+```
+sudo ./configureHA_QM QM1
 ```
 
 In addition to creating a resource for the queue manager QM1, the script adds two constraints to the Pacemaker configuration:
