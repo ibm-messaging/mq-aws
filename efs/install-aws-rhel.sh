@@ -20,6 +20,7 @@ set -e
 # Install NFS client, and other utils for this script
 yum -y install \
   curl \
+  bc \
   nfs-utils \
   nfs-utils-lib \
   unzip

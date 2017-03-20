@@ -28,7 +28,8 @@ yum -y install \
   bash \
   curl \
   rpm \
-  tar
+  tar \
+  bc
 
 # Download and extract the MQ installation files
 mkdir -p /tmp/mq
